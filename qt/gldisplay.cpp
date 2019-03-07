@@ -36,7 +36,7 @@ using namespace std;
 GLDisplay::GLDisplay(QWidget *parent) : QOpenGLWidget(parent),
 m_cameraScene(Camera()), m_cameraQuad(Camera()),
 m_mousePos(0, 0),
-m_lastFPSUpdate(0), m_frameCounter(0), m_FPS(0),
+m_lastFPSUpdate(0), m_frameCounter(0), m_FPS(0), m_counter(0),
 m_wireframe(false), m_backFaceCulling(false), m_renderCoordinateFrame(false)
 {
 	m_objectFileName = "teapot";
@@ -113,6 +113,7 @@ void GLDisplay::initializeGL()
 
 void GLDisplay::reinitGL()
 {
+	m_counter = 0;
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_MULTISAMPLE);
 	glClearColor(0, 0, 0, 0);
@@ -213,8 +214,8 @@ void GLDisplay::paintGL()
 
     //Clear screen
     //Clear the color and the z buffer
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //glClearColor(0.0, 0.0, 0.0, 1.0);
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glViewport(0, 0, m_framebuffer->getWidth(), m_framebuffer->getHeight());
 
     this->setOpenGLRenderingState();
@@ -224,24 +225,26 @@ void GLDisplay::paintGL()
 
     glClear(GL_DEPTH_BUFFER_BIT);
     //Render the scene
-    this->renderScene();
+    //this->renderScene();
 
     //Apply one render to texture pass
-    f->glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferFinalResult->getFramebufferID());
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glViewport(0, 0, m_framebufferFinalResult->getWidth(), m_framebufferFinalResult->getHeight());
 
-    this->renderToTexture(m_framebuffer->getColorBufferID(0), false);
 
     /*------ Display the framebuffer on the screen -----*/
     f->glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glClearColor(0.0, 0.0, 0.0, 1.0);
+    //glClearColor(0.0, 0.0, 0.0, 1.0);
     glViewport(0, 0, this->width(), this->height());
 
     //use the simplified pipeline for better speed
-    this->renderToTexture(m_framebufferFinalResult->getColorBufferID(0), true);
+    this->renderToTexture(0, true);
+
+		f->glBindFramebuffer(GL_FRAMEBUFFER, m_framebufferFinalResult->getFramebufferID());
+		glClear(GL_DEPTH_BUFFER_BIT);
+		// glClearColor(0.0, 0.0, 0.0, 1.0);
+		glViewport(0, 0, m_framebufferFinalResult->getWidth(), m_framebufferFinalResult->getHeight());
+		//
+		this->renderToTexture(m_framebufferFinalResult->getFramebufferID(), false);
 
     this->drawFPS();
 
@@ -449,7 +452,7 @@ void GLDisplay::renderToTexture(const int textureId, bool isSimplifiedPipeline)
 
     //Bind the texture so that it can be used by the shader
     f->glActiveTexture(GL_TEXTURE0);
-    f->glBindTexture(GL_TEXTURE_2D, textureId);
+    f->glBindTexture(GL_TEXTURE_2D, m_framebufferFinalResult->getColorBufferID(0));
 
     if (!isSimplifiedPipeline)
     {
@@ -479,7 +482,12 @@ void GLDisplay::renderToTexture(const int textureId, bool isSimplifiedPipeline)
     m_shaderProgramDisplay->setUniformValue("mvMatrix", viewMatrixQuad*m_R2Tsquare.getModelMatrix());
     m_shaderProgramDisplay->setUniformValue("mvMatrixScene", m_scene->getObjects()[0].getModelMatrix()*m_cameraScene.getViewMatrix());
     m_shaderProgramDisplay->setUniformValue("pMatrix", projectionMatrixQuad);
+		m_shaderProgramDisplay->setUniformValue("time", m_counter); //Time
+		m_shaderProgramDisplay->setUniformValue("random", rand()); //Random
 
+		if (!isSimplifiedPipeline) {
+			m_counter++;
+		}
     //Draw the current object
     m_R2TVAO.bind();
 
@@ -596,6 +604,7 @@ void GLDisplay::wheelEvent(QWheelEvent* event)
         m_scene->translateLightSourceZ(0, variation / 1000.0);
     }
 
+		m_counter = 0;
     update();
     event->accept();
 }
@@ -639,7 +648,7 @@ void GLDisplay::mouseMoveEvent(QMouseEvent *event)
         m_scene->translateLightSourceX(0, (m_mousePos.x() - event->pos().x()) / 100.0);
         m_scene->translateLightSourceY(0, (m_mousePos.y() - event->pos().y()) / 100.0);
     }
-
+		m_counter = 0;
     //Update openGL
     update();
 
@@ -677,6 +686,7 @@ void GLDisplay::keyPressEvent(QKeyEvent *event)
         qDebug() << "Reset scene" << endl;
     }
 
+		m_counter = 0;
     update();//Update openGL
     event->accept();
 }

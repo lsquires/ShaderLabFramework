@@ -208,6 +208,7 @@ private:
     QTime m_timeFPS;
     int m_lastFPSUpdate;
     int m_frameCounter;
+    int m_counter;
     int m_FPS;
     QTimer m_timer;
 
